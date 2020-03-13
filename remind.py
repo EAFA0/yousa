@@ -1,4 +1,5 @@
-import datetime, re
+import datetime
+import re
 from typing import Callable
 
 
@@ -21,17 +22,17 @@ _time = r"(%s)|(%s)" % (_time_ch, _time_ts)
 # 时间格式检查
 _re_check = r"(%s)? ?(%s)? ?(%s)" % (_date, _front_time_ch, _time)
 
-_re_check       = re.compile(_re_check)
+_re_check = re.compile(_re_check)
 
 # 检查时间范围是否正确
 check_time = {
-    '凌晨': lambda set_time: set_time in range(0,  7 ),
+    '凌晨': lambda set_time: set_time in range(0,  7),
     '早上': lambda set_time: set_time in range(4,  11),
     '上午': lambda set_time: set_time in range(0,  13),
     '中午': lambda set_time: set_time in range(10, 15),
     '下午': lambda set_time: set_time in range(12, 24),
     '晚上': lambda set_time: set_time in range(17, 24),
-    None:   lambda set_time: True
+    None: lambda set_time: True
 }
 
 help_word = '''
@@ -55,6 +56,7 @@ help_word = '''
     事件无要求, 随意写
 '''
 
+
 class TimeCommand(object):
 
     def __init__(self):
@@ -62,7 +64,7 @@ class TimeCommand(object):
         在 check_set_time 之后都是 str, parse_* 之后为转换尾对应数据
         '''
         self.help_word = help_word
-        
+
     def check_set_time(self, _set_time: str) -> Callable:
         '''
         检查提取出来的 set_time 格式是否符合规范, 此处还应该检查时间是否正确
@@ -78,18 +80,17 @@ class TimeCommand(object):
         从匹配结果里提取出 datetime()
         '''
         date_time = self.check_set_time(_set_time)
-        _date           = date_time.group(1)
-        _front_time_ch  = date_time.group(4)
-        _time           = date_time.group(8)
+        _date = date_time.group(1)
+        _front_time_ch = date_time.group(4)
+        _time = date_time.group(8)
 
-        date  = self.parse_date(_date) or datetime.datetime.now().date()
+        date = self.parse_date(_date) or datetime.datetime.now().date()
         times = self.parse_time(_time, _front_time_ch)
 
         if times:
             return datetime.datetime.combine(date, times)
         else:
             raise ValueError('请不要混合使用12小时制和24小时制描述时间')
-
 
     def parse_date(self, _date: str) -> Callable:
         '''
@@ -119,7 +120,7 @@ class TimeCommand(object):
 
         return date
 
-    def parse_time(self, _time: str,  _front_time_ch :str = None) -> Callable:
+    def parse_time(self, _time: str,  _front_time_ch: str = None) -> Callable:
         '''
         将 _time_ch / _time_ts 形式的字符串转换成 datetime.time()
         若 time 不正确, 如 下午13点 之类的, 将返回错误
@@ -155,7 +156,6 @@ class TimeCommand(object):
             return times
         else:
             return None
-
 
     def msg_to_command(self, message: str) -> tuple:
         '''

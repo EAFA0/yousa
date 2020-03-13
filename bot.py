@@ -45,24 +45,25 @@ async def handle_msg(context):
 async def dynamic_and_live_repost():
     global last_time
     status = await monitor(last_time)
-    
+
     live_rooms = status['live']
     new_dynamics = status['dynamic']
 
     if new_dynamics != []:
         for dynamic in new_dynamics:
-            await bot.send({'group_id': '905731311'}, str(dynamic))
-    
+            await bot.send({'group_id': '905731311'}, dynamic[0]['dynamic'] + '\n' + 'https://t.bilibili.com/'+dynamic[0]['dynamic_id'])
+
     if live_rooms != []:
         for room in live_rooms:
             try:
-                await bot.send({'group_id': '905731311'}, str(room))
-            except:
+                await bot.send({'group_id': '905731311'}, 'https://live.bilibili.com/21672023')
+            except Exception:
                 traceback.print_exc()
-    
-    last_time = int(time.time())
 
-sched.add_job(dynamic_and_live_repost, 'interval', seconds=60)
+    last_time = int(time.time())
+    print(last_time)
+
+sched.add_job(dynamic_and_live_repost, 'interval', seconds=30)
 
 sched.start()
 bot.run(host='127.0.0.1', port=8080, loop=asyncio.get_event_loop())

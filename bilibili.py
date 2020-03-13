@@ -1,5 +1,4 @@
 import yaml
-import time
 import json
 import asyncio
 import traceback
@@ -23,7 +22,6 @@ def get_dynamic(card: dict):
     item = {}
     try:
         desc = card['desc']
-        
         user_name = desc['user_profile']['info']['uname']
         item['user_name'] = user_name
         item['timestamp'] = desc['timestamp']
@@ -34,15 +32,14 @@ def get_dynamic(card: dict):
         _type = desc['type']
         dynamic_keys = dynamic_keys_from_type[_type]
         item['dynamic'] = get_value(_card, dynamic_keys)
-
-    except:
+    except Exception:
         traceback.print_exc()
     return item
 
 
 async def user_dynamic(user_id: str) -> dict:
     api_url = 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/space_history'
-    async with request("GET", api_url, params={'host_uid': user_id}) as response:
+    async with request("GET", api_url, params={'host_uid': user_id, 'visitor_id': "0", 'offset_dynamic_id': "0"}) as response:
         cards = (await response.json())['data']['cards']
 
         return [get_dynamic(card) for card in cards]
@@ -58,6 +55,7 @@ async def user_new_dynamic(user_ids, timestamp: int):
         dynamics = await user_dynamic(user_id)
 
         _new_dynamics = filter_dynamic(dynamics, timestamp)
+        print(len(_new_dynamics) != 0)
         if _new_dynamics != []:
             new_dynamics.append(_new_dynamics)
 
@@ -76,13 +74,22 @@ async def room_statu(room_id: str):
 
 
 async def monitor(timestamp: int):
-    config = yaml.load(open('./bilibili.yaml', 'rb'))
+    config = yaml.safe_load(open('./bilibili.yaml', 'rb'))
     user_ids = config['user_ids']
     room_ids = config['room_ids']
 
+    if type(user_ids) != list:
+        user_ids = [user_ids]
+
+    if type(room_ids) != list:
+        room_ids = [room_ids]
+
+    print(user_ids)
+    print(room_ids)
+
     new_dynamics = await user_new_dynamic(user_ids, timestamp)
 
-    live_rooms = ['https://live.bilibili.com/' + str(room_id) 
+    live_rooms = ['https://live.bilibili.com/' + str(room_id)
                   for room_id in room_ids if await room_statu(room_id)]
 
     return {'dynamic': new_dynamics, 'live': live_rooms}
