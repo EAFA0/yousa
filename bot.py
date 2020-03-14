@@ -1,69 +1,67 @@
 import time
-import asyncio
-import traceback
+import datetime
+import yaml
 
 from aiocqhttp import CQHttp
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from dynamic import Dynamic
 
 from bilibili import monitor
-from remind import TimeCommand
 
-bot = CQHttp(api_root='http://127.0.0.1:5700/')
+cq_url = 'http://127.0.0.1:5700/'
+
+ONE_HOUR = 3600
+
+bot = CQHttp(api_root=cq_url)
 
 last_time = int(time.time())
 sched = AsyncIOScheduler()
-str_to_command = TimeCommand()
 
-# 处理私聊消息
-@bot.on_message('private')
-async def handle_msg(context):
-    '''
-    接受私聊的定时消息, 如几点提醒我干啥事
-    '''
-    # 命令解析
-    if '帮助' in context['message']:
-        return {'reply': str_to_command.help_word}
-    if '提醒' not in context['message']:
-        return None
-
-    try:
-        set_time, item = str_to_command.msg_to_command(context['message'])
-    except ValueError as error:
-        return {'reply': str(error)}
-    except Exception:
-        await bot.send({'user_id': '1005982788'}, context['message'])
-        await bot.send({'user_id': '1005982788'}, str(traceback.format_exc()))
-        return {'reply': '发生错误, 已提交错误报告'}
-
-    sched.add_job(bot.send, 'date', run_date=set_time, args=[
-        {'user_id': context['user_id']}, item
-    ])
-
-    return {'reply': '好的, 将在{0}提醒您{1}'.format(str(set_time), item)}
+live_states = dict()
 
 
 async def dynamic_and_live_repost():
     global last_time
     status = await monitor(last_time)
 
-    live_rooms = status['live']
-    new_dynamics = status['dynamic']
+    live_room_ids: list(int) = status['live']
+    new_dynamics: list(Dynamic) = status['dynamic']
 
     if new_dynamics != []:
         for dynamic in new_dynamics:
-            await bot.send({'group_id': '905731311'}, dynamic[0]['dynamic'] + '\n' + 'https://t.bilibili.com/'+dynamic[0]['dynamic_id'])
+            for group_id in dynamic_monitor_config[dynamic.user_id]['group_ids']:
+                await bot.send({'group_id': group_id}, '新的动态' + '\n' + dynamic.content + '\n' + dynamic.url)
 
-    if live_rooms != []:
-        for room in live_rooms:
-            try:
-                await bot.send({'group_id': '905731311'}, 'https://live.bilibili.com/21672023')
-            except Exception:
-                traceback.print_exc()
+    if live_room_ids != []:
+        for room_id in live_room_ids:
+            for group_id in room_monitor_config[room_id]['group_ids']:
+                if live_states.get(room_id, None) is None or int(time.time()) > live_states.get(room_id, None)+ONE_HOUR:
+                    await bot.send({'group_id': group_id}, '正在直播中: https://live.bilibili.com/{room_id}'.format(room_id=room_id))
+                    live_states[room_id] = int(time.time())
 
     last_time = int(time.time())
-    print(last_time)
+    print("last_test_time:"+datetime.datetime.now().isoformat())
 
-sched.add_job(dynamic_and_live_repost, 'interval', seconds=30)
 
-sched.start()
-bot.run(host='127.0.0.1', port=8080, loop=asyncio.get_event_loop())
+def process_config(configs: dict, type: str):
+    resp = dict()
+    _id = 'user_id' if type == 'dynamic' else 'room_id'
+    _ids = 'user_ids' if type == 'dynamic' else 'room_ids'
+    resp[_ids] = list()
+
+    for config in configs:
+        resp.update({config[_id]: config})
+        resp[_ids].append(config[_id])
+    return resp
+
+
+if __name__ == "__main__":
+    config = yaml.safe_load(open('./bilibili.yaml', 'rb'))
+
+    dynamic_monitor_config = process_config(config['user_monitor'], 'dynamic')
+    room_monitor_config = process_config(config['room_monitor'], 'room')
+
+    sched.add_job(dynamic_and_live_repost, 'interval', seconds=10, max_instances=5)
+    sched.start()
+
+    bot.run(host='127.0.0.1', port=8080)

@@ -1,4 +1,12 @@
-user_ids:
-        - 477317922
-room_ids:
-        - 8721129
+user_monitor:
+- 
+        user_id: 477317922
+        group_ids: 
+                - 905731311
+
+room_monitor:
+- 
+        room_id: 8721129
+        group_ids: 
+                - 905731311
+
